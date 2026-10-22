@@ -14,9 +14,8 @@ function makePersonaService(repo, { rolFijo, entrenador = false, nombre }) {
       v.isDate(d.fecha_nacimiento, 'Fecha de nacimiento');
       if (new Date(d.fecha_nacimiento) > new Date()) throw badRequest('La fecha de nacimiento no puede ser futura');
     }
-    if (creando && d.password && String(d.password).length < 6) throw badRequest('La contraseña debe tener mínimo 6 caracteres');
-    if (!creando && d.password && String(d.password).length < 6) throw badRequest('La contraseña debe tener mínimo 6 caracteres');
-    if (!rolFijo && creando) v.oneOf(d.rol, ['Administrador', 'Recepcionista'], 'Rol');
+    if (d.password && String(d.password).length < 6) throw badRequest('La contraseña debe tener mínimo 6 caracteres');
+    if (!rolFijo) v.oneOf(d.rol, ['Administrador', 'Recepcionista'], 'Rol');
     if (entrenador) {
       if (creando) v.required(d, { id_sede: 'Sede' });
       if (d.id_sede && !(await sedeRepo.findById(d.id_sede))) throw badRequest('La sede indicada no existe');
