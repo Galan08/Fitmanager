@@ -11,7 +11,6 @@ const app = express();
 app.use(express.json());
 app.use('/api', api);
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/api', errorHandler);
 app.use(errorHandler);
 
 (async () => {

@@ -18,15 +18,17 @@ const programacionService = {
   async _validar(d, excluirId = 0) {
     v.required(d, { id_clase: 'Clase', id_entrenador: 'Entrenador', id_sede: 'Sede', fecha_hora_inicio: 'Fecha y hora', duracion_minutos: 'Duración' });
     v.positive(d.duracion_minutos, 'Duración (min)');
-    if (!(await claseRepo.findById(d.id_clase))) throw badRequest('La clase no existe');
+    const clase = await claseRepo.findById(d.id_clase);
+    if (!clase) throw badRequest('La clase no existe');
     const sede = await sedeRepo.findById(d.id_sede);
     if (!sede || sede.estado !== 'Activa') throw badRequest('La sede no existe o está inactiva');
     if (await programacionRepo.hayCruce(d.id_entrenador, d.fecha_hora_inicio, d.duracion_minutos, excluirId)) {
       throw conflict('El entrenador ya tiene otra clase en ese horario');
     }
+    return clase;
   },
   async create(data) {
-    const d = { ...data, fecha_hora_inicio: v.toSqlDateTime(data.fecha_hora_inicio || '') };
+    const d = { ...data, fecha_hora_inicio: v.toSqlDateTime(data.fecha_hora_inicio) };
     await this._validar(d);
     return programacionRepo.findById(await programacionRepo.create(d));
   },
@@ -34,8 +36,8 @@ const programacionService = {
     const actual = await this.get(id);
     const d = { ...actual, ...data };
     d.fecha_hora_inicio = v.toSqlDateTime(d.fecha_hora_inicio);
-    await this._validar(d, Number(id));
-    if (d.capacidad_maxima && (await programacionRepo.reservasActivas(id)) > d.capacidad_maxima) throw conflict('Hay más reservas que cupos');
+    const clase = await this._validar(d, Number(id));
+    if ((await programacionRepo.reservasActivas(id)) > clase.capacidad_maxima) throw conflict('Hay más reservas que cupos');
     await programacionRepo.update(id, d);
     return programacionRepo.findById(id);
   },

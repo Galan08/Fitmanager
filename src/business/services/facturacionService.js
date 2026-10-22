@@ -74,12 +74,15 @@ const suscripcionService = {
     const id = await tx(async (conn) => {
       const idSus = await suscripcionRepo.create({ id_cliente: data.id_cliente, id_membresia: m.id_membresia, fecha_inicio: inicio, fecha_fin: fin, estado: 'Pendiente' }, conn);
       const impuesto = Math.round(((m.precio - descuento) * env.iva) / 100);
+      const total = m.precio - descuento + impuesto;
       const idFac = await facturaRepo.create({
-        id_suscripcion: idSus, numero_factura: code('FAC'), subtotal: m.precio, descuento, impuesto, total: m.precio - descuento + impuesto, estado: 'Pendiente',
+        id_suscripcion: idSus, numero_factura: code('FAC'), subtotal: m.precio, descuento, impuesto, total, estado: 'Pendiente',
       }, conn);
-      if (data.metodo_pago) {
+      if (data.metodo_pago && total > 0) {
         const f = await facturaRepo.findById(idFac, conn);
         await registrarPago({ id_factura: idFac, monto: f.total, metodo_pago: data.metodo_pago }, conn);
+      } else {
+        await recalcular(idFac, conn);   // una factura en $0 (descuento total) queda pagada y activa la suscripción
       }
       return idSus;
     });
@@ -139,6 +142,11 @@ const pagoService = {
   async update(id, data) {
     const p = await this.get(id);
     if (data.estado_pago) v.oneOf(data.estado_pago, ESTADOS_PAGO, 'Estado del pago');
+    if (data.estado_pago === 'Aprobado' && p.estado_pago !== 'Aprobado') {
+      const f = await facturaService.get(p.id_factura);
+      if (f.estado === 'Anulada') throw conflict('La factura está anulada');
+      if (p.monto > f.saldo) throw badRequest(`El monto supera el saldo pendiente ($${f.saldo.toLocaleString('es-CO')})`);
+    }
     await tx(async (conn) => {
       await pagoRepo.update(id, { estado_pago: data.estado_pago, concepto: data.concepto, metodo_pago: data.metodo_pago }, conn);
       await recalcular(p.id_factura, conn);

@@ -24,7 +24,9 @@ export function h(tag, props = {}, ...children) {
 export const money = (n) => (n === null || n === undefined ? '—' : new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n));
 export const fmtDate = (s) => (s ? String(s).slice(0, 10).split('-').reverse().join('/') : '—');
 export const fmtDT = (s) => (s ? `${fmtDate(s)} ${String(s).slice(11, 16)}` : '—');
-export const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+/** Fecha y hora local en formato de la API ('AAAA-MM-DD HH:mm'). */
+export const ahora = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16).replace('T', ' ');
+export const today = () => ahora().slice(0, 10);
 
 const TONE = {
   Activa: 'ok', Pagada: 'ok', Aprobado: 'ok', Asistio: 'ok', Confirmada: 'info', Pendiente: 'warn',
