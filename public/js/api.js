@@ -29,7 +29,5 @@ export const api = {
   put: (p, b = {}) => request('PUT', p, b),
   del: (p) => request('DELETE', p),
 };
-const cache = new Map();
 /** Listas {value,label} para selectores (sin caché para que siempre estén actualizadas). */
 export const lookup = (name) => api.get(`/lookups/${name}`);
-export { cache };
