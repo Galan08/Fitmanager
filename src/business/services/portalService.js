@@ -4,7 +4,7 @@ const { rutinaRepo, detalleRepo } = require('../../data/repositories/rutinasRepo
 const { reservaRepo } = require('../../data/repositories/clasesRepository');
 const { clienteRepo } = require('../../data/repositories/personaRolRepository');
 const { reservaService } = require('./clasesService');
-const { forbidden, notFound } = require('../errors');
+const { forbidden, notFound, conflict } = require('../errors');
 
 module.exports = {
   async resumen(idPersona) {
@@ -25,6 +25,7 @@ module.exports = {
     const r = await reservaRepo.findById(idReserva);
     if (!r) throw notFound('Reserva no encontrada');
     if (r.id_cliente !== idPersona) throw forbidden();
+    if (r.estado_reserva !== 'Confirmada') throw conflict('Solo se pueden cancelar reservas confirmadas');
     return reservaService.update(idReserva, { estado_reserva: 'Cancelada' });
   },
 };

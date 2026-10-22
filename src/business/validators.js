@@ -26,6 +26,6 @@ function isEmail(value) {
   if (!blank(value) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw badRequest('El correo electrónico no es válido');
 }
 /** Normaliza datetime-local ('2026-10-22T07:00') a formato SQL (AAAA-MM-DD HH:mm:ss). */
-const toSqlDateTime = (v) => String(v).replace('T', ' ').slice(0, 19).padEnd(19, ':00').slice(0, 19);
+const toSqlDateTime = (v) => (blank(v) ? v : String(v).replace('T', ' ').slice(0, 19).padEnd(19, ':00').slice(0, 19));
 
 module.exports = { blank, required, positive, nonNegative, oneOf, isDate, isEmail, toSqlDateTime };

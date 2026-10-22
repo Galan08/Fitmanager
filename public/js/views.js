@@ -1,6 +1,6 @@
 // CAPA DE PRESENTACIÓN (cliente): vistas genéricas y especializadas.
 import { api } from './api.js';
-import { h, money, fmtDate, fmtDT, today, badge, toast, openModal, confirmDialog, openForm, dataTable, btn, downloadCSV } from './ui.js';
+import { h, money, fmtDate, fmtDT, today, ahora, badge, toast, openModal, confirmDialog, openForm, dataTable, btn, downloadCSV } from './ui.js';
 
 const METODOS = ['Efectivo', 'Tarjeta', 'Transferencia', 'PSE'];
 const head = (title, sub, ...tools) => h('div', { class: 'page-head' }, h('div', {}, h('h2', {}, title), sub ? h('p', {}, sub) : null), tools.length ? h('div', { class: 'toolbar' }, tools) : null);
@@ -96,8 +96,7 @@ export async function gestionarDetalle(rutina, { canWrite }) {
 // ======================================================================
 export async function dashboardView() {
   const [aforo, r, venc, prog] = await Promise.all([api.get('/accesos/aforo'), api.get('/informes/resumen'), api.get('/informes/por_vencer?dias=7'), api.get('/programacion')]);
-  const ahora = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16).replace('T', ' ');
-  const proximas = prog.filter((p) => p.fecha_hora_inicio >= ahora).sort((a, b) => a.fecha_hora_inicio.localeCompare(b.fecha_hora_inicio)).slice(0, 6);
+  const proximas = prog.filter((p) => p.fecha_hora_inicio >= ahora()).sort((a, b) => a.fecha_hora_inicio.localeCompare(b.fecha_hora_inicio)).slice(0, 6);
   const kpi = (v, t) => h('div', { class: 'card kpi' }, h('div', { class: 'v' }, v), h('div', { class: 't' }, t));
   return h('div', {},
     head('Panel', 'Estado del gimnasio ahora mismo.'),
@@ -203,7 +202,7 @@ export async function informesView() {
 // ======================================================================
 export async function miResumenView() {
   const { perfil, suscripciones, activa } = await api.get('/portal/resumen');
-  const vigente = suscripciones.find((s) => s.estado === 'Activa');
+  const vigente = suscripciones.find((s) => s.estado === 'Activa' && s.fecha_inicio <= today() && s.fecha_fin >= today());
   return h('div', {}, head(`Hola, ${perfil.nombres}`, 'Tu estado en el gimnasio.'),
     h('div', { class: `card status-card${activa ? ' on' : ''}` },
       h('div', {}, h('div', { class: 'big' }, activa ? 'Suscripción activa' : 'Sin suscripción activa'),
@@ -241,7 +240,7 @@ export async function misClasesView() {
     box.replaceChildren(h('h3', {}, 'Mis reservas'), dataTable({ rows: reservas, empty: 'Aún no has reservado clases.', columns: [
       { key: 'nombre_clase', label: 'Clase' }, { key: 'fecha_hora_inicio', label: 'Cuándo', render: (r) => fmtDT(r.fecha_hora_inicio) }, { key: 'sede', label: 'Sede' },
       { key: 'estado_reserva', label: 'Estado', render: (r) => badge(r.estado_reserva) }],
-      actions: (r) => (r.estado_reserva === 'Confirmada' && r.fecha_hora_inicio > new Date().toISOString().slice(0, 16).replace('T', ' ')
+      actions: (r) => (r.estado_reserva === 'Confirmada' && r.fecha_hora_inicio > ahora()
         ? [btn('Cancelar', async () => { if (await confirmDialog('¿Cancelar esta reserva?', 'Cancelar reserva')) { try { await api.put(`/portal/reservas/${r.id_reserva}/cancelar`); toast('Reserva cancelada'); load(); } catch (e) { toast(e.message, true); } } }, 'danger')] : []) }));
   }
   root.append(head('Clases', 'Reserva tu cupo en las clases grupales. Los cupos se muestran como ocupados/capacidad.'), quick, box);
