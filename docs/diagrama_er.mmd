@@ -1,0 +1,113 @@
+erDiagram
+    ROL ||--o{ USUARIO : "asigna"
+    PERSONA ||--o| USUARIO : "tiene cuenta"
+    PERSONA ||--o| ENTRENADOR : "puede ser"
+    SEDE ||--o{ ENTRENADOR : "asignado a"
+    PERSONA ||--o{ SUSCRIPCION : "cliente contrata"
+    MEMBRESIA ||--o{ SUSCRIPCION : "plan"
+    SUSCRIPCION ||--o{ FACTURA : "genera"
+    FACTURA ||--o{ PAGO : "recibe"
+    PERSONA ||--o{ CONTROL_ACCESO : "cliente ingresa"
+    SEDE ||--o{ CONTROL_ACCESO : "registra"
+    CLASE ||--o{ PROGRAMACION_CLASE : "se programa"
+    ENTRENADOR ||--o{ PROGRAMACION_CLASE : "dicta"
+    SEDE ||--o{ PROGRAMACION_CLASE : "se realiza en"
+    PERSONA ||--o{ RESERVA_CLASE : "cliente reserva"
+    PROGRAMACION_CLASE ||--o{ RESERVA_CLASE : "tiene"
+    PERSONA ||--o{ RUTINA : "cliente recibe"
+    ENTRENADOR ||--o{ RUTINA : "asigna"
+    RUTINA ||--o{ DETALLE_RUTINA : "contiene"
+    EJERCICIO ||--o{ DETALLE_RUTINA : "se usa en"
+
+    SEDE { int id_sede PK
+      varchar nombre
+      varchar direccion
+      varchar telefono
+      enum estado }
+    ROL { int id_rol PK
+      varchar nombre UK
+      varchar descripcion }
+    PERSONA { int id_persona PK
+      varchar documento_identidad UK
+      varchar nombres
+      varchar apellidos
+      date fecha_nacimiento
+      varchar email
+      varchar telefono
+      date fecha_registro }
+    USUARIO { int id_usuario PK
+      int id_persona FK
+      int id_rol FK
+      varchar username UK
+      varchar password_hash
+      datetime fecha_creacion }
+    ENTRENADOR { int id_entrenador PK
+      int id_persona FK
+      int id_sede FK
+      varchar especialidad }
+    MEMBRESIA { int id_membresia PK
+      varchar nombre UK
+      text descripcion
+      decimal precio
+      int duracion_dias
+      enum estado }
+    SUSCRIPCION { int id_suscripcion PK
+      int id_cliente FK
+      int id_membresia FK
+      date fecha_inicio
+      date fecha_fin
+      enum estado }
+    FACTURA { int id_factura PK
+      int id_suscripcion FK
+      varchar numero_factura UK
+      datetime fecha_emision
+      decimal subtotal
+      decimal descuento
+      decimal impuesto
+      decimal total
+      enum estado }
+    PAGO { int id_pago PK
+      int id_factura FK
+      decimal monto
+      datetime fecha_pago
+      enum metodo_pago
+      enum estado_pago
+      varchar referencia_pago UK
+      varchar concepto }
+    CONTROL_ACCESO { bigint id_acceso PK
+      int id_cliente FK
+      int id_sede FK
+      datetime fecha_hora_ingreso
+      datetime fecha_hora_salida }
+    CLASE { int id_clase PK
+      varchar nombre_clase UK
+      text descripcion
+      int capacidad_maxima }
+    PROGRAMACION_CLASE { int id_programacion PK
+      int id_clase FK
+      int id_entrenador FK
+      int id_sede FK
+      datetime fecha_hora_inicio
+      int duracion_minutos }
+    RESERVA_CLASE { int id_reserva PK
+      int id_cliente FK
+      int id_programacion FK
+      datetime fecha_reserva
+      enum estado_reserva }
+    RUTINA { int id_rutina PK
+      int id_cliente FK
+      int id_entrenador FK
+      varchar nombre_rutina
+      varchar objetivo
+      date fecha_asignacion }
+    EJERCICIO { int id_ejercicio PK
+      varchar nombre_ejercicio UK
+      varchar grupo_muscular
+      text descripcion }
+    DETALLE_RUTINA { int id_detalle PK
+      int id_rutina FK
+      int id_ejercicio FK
+      int series
+      int repeticiones
+      int descanso_segundos
+      int orden }

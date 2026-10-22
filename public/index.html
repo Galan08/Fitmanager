@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FitManager · Gestión de gimnasio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Pantalla de acceso -->
+  <main id="login" class="login" hidden>
+    <section class="login-brand">
+      <h1>FitManager</h1>
+      <p>Suscripciones, accesos, clases y rutinas de tu gimnasio en un solo lugar.</p>
+      <ul class="demo">
+        <li><b>admin</b> · Administrador</li>
+        <li><b>recepcion</b> · Recepcionista</li>
+        <li><b>carlos.rojas</b> · Entrenador</li>
+        <li><b>cliente1</b> · Cliente</li>
+        <li>Contraseña de prueba: <b>Admin123*</b></li>
+      </ul>
+    </section>
+    <section class="login-form">
+      <form id="loginForm" autocomplete="on">
+        <h2>Iniciar sesión</h2>
+        <label>Usuario<input name="username" required autofocus autocomplete="username"></label>
+        <label>Contraseña<input name="password" type="password" required autocomplete="current-password"></label>
+        <p id="loginError" class="form-error" role="alert"></p>
+        <button class="btn primary" type="submit">Entrar</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- Aplicación -->
+  <div id="app" class="app" hidden>
+    <header class="topbar">
+      <button id="menuBtn" class="icon-btn" aria-label="Abrir menú">☰</button>
+      <strong class="topbar-title">FitManager</strong>
+    </header>
+    <aside id="sidebar" class="sidebar">
+      <div class="brand">FitManager</div>
+      <nav id="nav" aria-label="Módulos"></nav>
+      <div class="me">
+        <div><strong id="meName"></strong><span id="meRole"></span></div>
+        <button id="logoutBtn" class="btn ghost">Salir</button>
+      </div>
+    </aside>
+    <main id="view" class="view" tabindex="-1"></main>
+  </div>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
