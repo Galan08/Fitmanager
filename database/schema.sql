@@ -79,6 +79,7 @@ CREATE TABLE suscripcion (
   CONSTRAINT fk_suscripcion_membresia FOREIGN KEY (id_membresia) REFERENCES membresia(id_membresia) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 CREATE INDEX idx_suscripcion_cliente_estado ON suscripcion (id_cliente, estado);
+CREATE INDEX idx_suscripcion_estado_fin ON suscripcion (estado, fecha_fin);
 
 CREATE TABLE factura (
   id_factura     INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -92,6 +93,7 @@ CREATE TABLE factura (
   estado         VARCHAR(10) NOT NULL DEFAULT 'Pendiente' CHECK (estado IN ('Pendiente','Pagada','Anulada')),
   CONSTRAINT fk_factura_suscripcion FOREIGN KEY (id_suscripcion) REFERENCES suscripcion(id_suscripcion) ON UPDATE CASCADE ON DELETE RESTRICT
 );
+CREATE INDEX idx_factura_suscripcion ON factura (id_suscripcion);
 
 CREATE TABLE pago (
   id_pago         INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -104,6 +106,7 @@ CREATE TABLE pago (
   concepto        VARCHAR(150),
   CONSTRAINT fk_pago_factura FOREIGN KEY (id_factura) REFERENCES factura(id_factura) ON UPDATE CASCADE ON DELETE RESTRICT
 );
+CREATE INDEX idx_pago_factura ON pago (id_factura);
 
 CREATE TABLE control_acceso (
   id_acceso          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -115,6 +118,8 @@ CREATE TABLE control_acceso (
   CONSTRAINT fk_acceso_sede    FOREIGN KEY (id_sede)    REFERENCES sede(id_sede)       ON UPDATE CASCADE ON DELETE RESTRICT
 );
 CREATE INDEX idx_acceso_ingreso ON control_acceso (fecha_hora_ingreso);
+CREATE INDEX idx_acceso_cliente ON control_acceso (id_cliente);
+CREATE INDEX idx_acceso_sede ON control_acceso (id_sede);
 
 CREATE TABLE clase (
   id_clase         INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -134,6 +139,7 @@ CREATE TABLE programacion_clase (
   CONSTRAINT fk_prog_entrenador FOREIGN KEY (id_entrenador) REFERENCES entrenador(id_entrenador) ON UPDATE CASCADE ON DELETE RESTRICT,
   CONSTRAINT fk_prog_sede       FOREIGN KEY (id_sede)       REFERENCES sede(id_sede)             ON UPDATE CASCADE ON DELETE RESTRICT
 );
+CREATE INDEX idx_prog_entrenador ON programacion_clase (id_entrenador);
 
 CREATE TABLE reserva_clase (
   id_reserva      INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -145,6 +151,7 @@ CREATE TABLE reserva_clase (
   CONSTRAINT fk_reserva_cliente FOREIGN KEY (id_cliente)      REFERENCES persona(id_persona)                 ON UPDATE CASCADE ON DELETE RESTRICT,
   CONSTRAINT fk_reserva_prog    FOREIGN KEY (id_programacion) REFERENCES programacion_clase(id_programacion) ON UPDATE CASCADE ON DELETE RESTRICT
 );
+CREATE INDEX idx_reserva_programacion ON reserva_clase (id_programacion);
 
 CREATE TABLE rutina (
   id_rutina        INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -156,6 +163,7 @@ CREATE TABLE rutina (
   CONSTRAINT fk_rutina_cliente    FOREIGN KEY (id_cliente)    REFERENCES persona(id_persona)       ON UPDATE CASCADE ON DELETE RESTRICT,
   CONSTRAINT fk_rutina_entrenador FOREIGN KEY (id_entrenador) REFERENCES entrenador(id_entrenador) ON UPDATE CASCADE ON DELETE RESTRICT
 );
+CREATE INDEX idx_rutina_cliente ON rutina (id_cliente);
 
 CREATE TABLE ejercicio (
   id_ejercicio     INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -175,3 +183,4 @@ CREATE TABLE detalle_rutina (
   CONSTRAINT fk_detalle_rutina    FOREIGN KEY (id_rutina)    REFERENCES rutina(id_rutina)       ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT fk_detalle_ejercicio FOREIGN KEY (id_ejercicio) REFERENCES ejercicio(id_ejercicio) ON UPDATE CASCADE ON DELETE RESTRICT
 );
+CREATE INDEX idx_detalle_rutina ON detalle_rutina (id_rutina);
