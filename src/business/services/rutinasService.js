@@ -6,7 +6,7 @@ const { badRequest, notFound } = require('../errors');
 const v = require('../validators');
 
 const rutinaService = {
-  list: () => rutinaRepo.findAll(),
+  list: (query) => rutinaRepo.findAll(query),
   async get(id) {
     const r = await rutinaRepo.findById(id);
     if (!r) throw notFound('Rutina no encontrada');

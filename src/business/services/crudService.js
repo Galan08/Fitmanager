@@ -8,7 +8,7 @@ function makeCrudService(repo, { validate = () => {}, nombre = 'Registro' } = {}
     return row;
   };
   return {
-    list: () => repo.findAll(),
+    list: (query) => repo.findAll(query),
     get,
     async create(data) {
       await validate(data, 'create');

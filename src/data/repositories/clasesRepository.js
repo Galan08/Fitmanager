@@ -13,11 +13,7 @@ class ProgramacionRepository extends BaseRepository {
          JOIN clase c ON c.id_clase = t.id_clase
          JOIN entrenador e ON e.id_entrenador = t.id_entrenador
          JOIN persona p ON p.id_persona = e.id_persona
-         JOIN sede s ON s.id_sede = t.id_sede`);
-  }
-  async findAll(conn) {
-    const [rows] = await (conn || pool).query(`${this.select} ORDER BY t.fecha_hora_inicio DESC`);
-    return rows;
+         JOIN sede s ON s.id_sede = t.id_sede`, 't.fecha_hora_inicio DESC');
   }
   /** ¿El entrenador ya tiene otra clase que se cruza con [inicio, inicio+duración)? */
   async hayCruce(idEntrenador, inicio, duracion, excluirId = 0) {

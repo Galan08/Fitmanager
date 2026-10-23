@@ -1,5 +1,5 @@
 // CAPA FÍSICA: acceso genérico a datos (INSERT / SELECT / UPDATE / DELETE) para una tabla.
-const { pool, insertRow, updateRow } = require('../config/db');
+const { pool, insertRow, updateRow, page } = require('../config/db');
 
 class BaseRepository {
   /**
@@ -7,18 +7,20 @@ class BaseRepository {
    * @param {string} pk      clave primaria
    * @param {string[]} cols  columnas escribibles (lista blanca)
    * @param {string} select  SELECT base con alias "t" (permite JOINs de lectura)
+   * @param {string} order   ORDER BY del listado
    */
-  constructor(table, pk, cols, select) {
+  constructor(table, pk, cols, select, order) {
     this.table = table;
     this.pk = pk;
     this.cols = cols;
     this.select = select || `SELECT t.* FROM ${table} t`;
+    this.order = order || `t.${pk} DESC`;
   }
   _pick(data) {
     return Object.fromEntries(this.cols.filter((c) => data[c] !== undefined).map((c) => [c, data[c] === '' ? null : data[c]]));
   }
-  async findAll(conn) {
-    const [rows] = await (conn || pool).query(`${this.select} ORDER BY t.${this.pk} DESC`);
+  async findAll(query, conn) {
+    const [rows] = await (conn || pool).query(`${this.select} ORDER BY ${this.order}${page(query)}`);
     return rows;
   }
   async findById(id, conn) {

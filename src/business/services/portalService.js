@@ -10,7 +10,7 @@ module.exports = {
   async resumen(idPersona) {
     await suscripcionRepo.marcarVencidas();
     const perfil = await clienteRepo.findById(idPersona);
-    const suscripciones = (await suscripcionRepo.findAll()).filter((s) => s.id_cliente === idPersona);
+    const suscripciones = await suscripcionRepo.findByCliente(idPersona);
     return { perfil, suscripciones, activa: await suscripcionRepo.tieneActiva(idPersona) };
   },
   rutinas: (idPersona) => rutinaRepo.findByCliente(idPersona),

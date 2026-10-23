@@ -47,9 +47,9 @@ async function registrarPago(data, conn) {
 }
 
 const suscripcionService = {
-  async list() {
+  async list(query) {
     await suscripcionRepo.marcarVencidas();
-    return suscripcionRepo.findAll();
+    return suscripcionRepo.findAll(query);
   },
   async get(id) {
     const s = await suscripcionRepo.findById(id);
@@ -111,7 +111,7 @@ const suscripcionService = {
 };
 
 const facturaService = {
-  list: () => facturaRepo.findAll(),
+  list: (query) => facturaRepo.findAll(query),
   async get(id) {
     const f = await facturaRepo.findById(id);
     if (!f) throw notFound('Factura no encontrada');
@@ -129,7 +129,7 @@ const facturaService = {
 };
 
 const pagoService = {
-  list: () => pagoRepo.findAll(),
+  list: (query) => pagoRepo.findAll(query),
   async get(id) {
     const p = await pagoRepo.findById(id);
     if (!p) throw notFound('Pago no encontrado');
