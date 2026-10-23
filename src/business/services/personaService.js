@@ -27,7 +27,7 @@ function makePersonaService(repo, { rolFijo, entrenador = false, nombre }) {
     return row;
   };
   return {
-    list: () => repo.findAll(),
+    list: (query) => repo.findAll(query),
     get,
     async create(data) {
       await validar(data, true);

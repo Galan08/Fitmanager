@@ -9,7 +9,7 @@ const v = require('../validators');
 const ESTADOS_RESERVA = ['Confirmada', 'Asistio', 'Cancelada'];
 
 const programacionService = {
-  list: () => programacionRepo.findAll(),
+  list: (query) => programacionRepo.findAll(query),
   async get(id) {
     const p = await programacionRepo.findById(id);
     if (!p) throw notFound('Clase programada no encontrada');
@@ -49,7 +49,7 @@ const programacionService = {
 };
 
 const reservaService = {
-  list: () => reservaRepo.findAll(),
+  list: (query) => reservaRepo.findAll(query),
   async get(id) {
     const r = await reservaRepo.findById(id);
     if (!r) throw notFound('Reserva no encontrada');
@@ -60,7 +60,6 @@ const reservaService = {
     if (!(await clienteRepo.hasRole(data.id_cliente, 'Cliente'))) throw badRequest('La persona seleccionada no tiene el rol Cliente');
     const prog = await programacionService.get(data.id_programacion);
     if (new Date(prog.fecha_hora_inicio.replace(' ', 'T')) <= new Date()) throw badRequest('La clase ya comenzó o finalizó');
-    await suscripcionRepo.marcarVencidas();
     if (!(await suscripcionRepo.tieneActiva(data.id_cliente))) throw forbidden('El cliente no tiene una suscripción activa para reservar');
     const previa = await reservaRepo.findByClienteYProgramacion(data.id_cliente, data.id_programacion);
     if (previa && previa.estado_reserva !== 'Cancelada') throw conflict('El cliente ya tiene reservado este cupo');

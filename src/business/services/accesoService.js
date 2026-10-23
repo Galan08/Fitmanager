@@ -14,7 +14,6 @@ module.exports = {
     if (!(await clienteRepo.hasRole(data.id_cliente, 'Cliente'))) throw badRequest('La persona seleccionada no tiene el rol Cliente');
     const sede = await sedeRepo.findById(data.id_sede);
     if (!sede || sede.estado !== 'Activa') throw badRequest('La sede no existe o está inactiva');
-    await suscripcionRepo.marcarVencidas();
     if (!(await suscripcionRepo.tieneActiva(data.id_cliente))) throw forbidden('Acceso denegado: el cliente no tiene una suscripción activa');
     if (await accesoRepo.abiertoDe(data.id_cliente)) throw conflict('El cliente ya está dentro del gimnasio (falta registrar su salida)');
     const id = await accesoRepo.create({ id_cliente: data.id_cliente, id_sede: data.id_sede });
