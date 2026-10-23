@@ -21,6 +21,8 @@ psql -U postgres -d fitmanager -f database/schema.sql
 psql -U postgres -d fitmanager -f database/seed.sql
 #    b) o restaurar el backup completo (estructura + datos):
 psql -U postgres -d fitmanager -f database/fitmanager_backup.sql
+#    (si restauraste el backup o ya tenías la base creada, agrega los índices nuevos:)
+psql -U postgres -d fitmanager -f database/migrations/001_indices.sql
 #    (con pgAdmin: clic derecho en la base > Query Tool > abrir el .sql > ejecutar)
 
 # 3) Configurar la conexión

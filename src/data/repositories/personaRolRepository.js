@@ -1,6 +1,6 @@
 // CAPA FÍSICA: personas que cumplen un rol (Cliente, Entrenador, Administrador, Recepcionista).
 // Sustituye a la antigua tabla CLIENTE: un cliente = persona + usuario con rol 'Cliente'.
-const { pool, insertRow, updateRow } = require('../../config/db');
+const { pool, insertRow, updateRow, page } = require('../../config/db');
 
 const PERSONA_COLS = ['documento_identidad', 'nombres', 'apellidos', 'fecha_nacimiento', 'email', 'telefono'];
 const pickCols = (data, cols) => Object.fromEntries(cols.filter((c) => data[c] !== undefined).map((c) => [c, data[c] === '' ? null : data[c]]));
@@ -20,8 +20,8 @@ class PersonaRolRepository {
       ${entrenador ? 'JOIN entrenador e ON e.id_persona = p.id_persona JOIN sede s ON s.id_sede = e.id_sede' : ''}
       WHERE r.nombre = ANY(?)`;
   }
-  async findAll(conn) {
-    const [rows] = await (conn || pool).query(`${this.select} ORDER BY p.id_persona DESC`, [this.roles]);
+  async findAll(query, conn) {
+    const [rows] = await (conn || pool).query(`${this.select} ORDER BY p.id_persona DESC${page(query)}`, [this.roles]);
     return rows;
   }
   async findById(id, conn) {

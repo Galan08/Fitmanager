@@ -60,7 +60,7 @@ api.use('/rutinas', guard({ read: [R, E], write: [E] }), crudRouter(rutinaServic
 
 // Facturas: se generan con la suscripción; aquí solo se consultan y anulan
 const facturas = express.Router();
-facturas.get('/', wrap(async (_q, s) => s.json(await facturaService.list())));
+facturas.get('/', wrap(async (q, s) => s.json(await facturaService.list(q.query))));
 facturas.get('/:id', wrap(async (q, s) => s.json(await facturaService.get(q.params.id))));
 facturas.put('/:id/anular', wrap(async (q, s) => s.json(await facturaService.anular(q.params.id))));
 api.use('/facturas', guard({ read: [R], write: [R] }), facturas);

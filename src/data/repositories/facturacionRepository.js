@@ -2,8 +2,7 @@
 const { pool } = require('../../config/db');
 const BaseRepository = require('../baseRepository');
 
-const PAGADO = (alias = 't') =>
-  `COALESCE((SELECT SUM(x.monto) FROM pago x WHERE x.id_factura = ${alias}.id_factura AND x.estado_pago = 'Aprobado'), 0)`;
+const PAGADO = `SELECT COALESCE(SUM(monto), 0) AS pagado FROM pago WHERE id_factura = ? AND estado_pago = 'Aprobado'`;
 
 class SuscripcionRepository extends BaseRepository {
   constructor() {
@@ -14,13 +13,17 @@ class SuscripcionRepository extends BaseRepository {
          JOIN persona p ON p.id_persona = t.id_cliente
          JOIN membresia m ON m.id_membresia = t.id_membresia`);
   }
+  async findByCliente(idCliente) {
+    const [rows] = await pool.query(`${this.select} WHERE t.id_cliente = ? ORDER BY t.id_suscripcion DESC`, [idCliente]);
+    return rows;
+  }
   async marcarVencidas(conn) {
     await (conn || pool).query(`UPDATE suscripcion SET estado = 'Vencida' WHERE estado = 'Activa' AND fecha_fin < CURRENT_DATE`);
   }
   async tieneActiva(idCliente, conn) {
     const [rows] = await (conn || pool).query(
-      `SELECT id_suscripcion FROM suscripcion WHERE id_cliente = ? AND estado = 'Activa' AND CURRENT_DATE BETWEEN fecha_inicio AND fecha_fin LIMIT 1`, [idCliente]);
-    return rows.length > 0;
+      `SELECT EXISTS (SELECT 1 FROM suscripcion WHERE id_cliente = ? AND estado = 'Activa' AND CURRENT_DATE BETWEEN fecha_inicio AND fecha_fin) AS ok`, [idCliente]);
+    return rows[0].ok;
   }
   async setEstado(id, estado, conn) {
     await conn.query('UPDATE suscripcion SET estado = ? WHERE id_suscripcion = ?', [estado, id]);
@@ -47,15 +50,16 @@ class FacturaRepository extends BaseRepository {
   constructor() {
     super('factura', 'id_factura', ['id_suscripcion', 'numero_factura', 'subtotal', 'descuento', 'impuesto', 'total', 'estado'],
       `SELECT t.*, s.id_cliente, CONCAT(p.nombres,' ',p.apellidos) AS cliente, m.nombre AS membresia,
-              ${PAGADO()} AS pagado, t.total - ${PAGADO()} AS saldo
+              pg.pagado, t.total - pg.pagado AS saldo
          FROM factura t
+         CROSS JOIN LATERAL (${PAGADO.replace('?', 't.id_factura')}) pg
          JOIN suscripcion s ON s.id_suscripcion = t.id_suscripcion
          JOIN persona p ON p.id_persona = s.id_cliente
          JOIN membresia m ON m.id_membresia = s.id_membresia`);
   }
   async pagadoDe(id, conn) {
-    const [rows] = await (conn || pool).query(`SELECT ${PAGADO('f')} AS pagado FROM factura f WHERE f.id_factura = ?`, [id]);
-    return rows[0]?.pagado ?? 0;
+    const [rows] = await (conn || pool).query(PAGADO, [id]);
+    return rows[0].pagado;
   }
   async setEstado(id, estado, conn) {
     await conn.query('UPDATE factura SET estado = ? WHERE id_factura = ?', [estado, id]);

@@ -58,4 +58,10 @@ async function updateRow(conn, table, data, whereCol, whereVal) {
   return meta.affectedRows;
 }
 
-module.exports = { pool, tx, insertRow, updateRow };
+/** Paginación opcional (?limit=&offset=). Sin limit devuelve todo, como antes; máximo 100 filas por página. */
+function page({ limit, offset } = {}) {
+  if (!limit) return '';
+  return ` LIMIT ${Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100)} OFFSET ${Math.max(parseInt(offset, 10) || 0, 0)}`;
+}
+
+module.exports = { pool, tx, insertRow, updateRow, page };
