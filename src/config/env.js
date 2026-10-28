@@ -5,6 +5,8 @@ module.exports = {
   jwtSecret: process.env.JWT_SECRET || 'cambia-este-secreto',
   jwtExpires: process.env.JWT_EXPIRES || '8h',
   iva: Number(process.env.IVA_PORCENTAJE ?? 19),
+  // En la nube (Supabase) basta con DATABASE_URL; en local se usan las variables DB_*.
+  databaseUrl: process.env.DATABASE_URL,
   db: {
     host: process.env.DB_HOST || 'localhost',
     port: Number(process.env.DB_PORT) || 5432,

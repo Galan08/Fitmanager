@@ -64,3 +64,9 @@ tests/api.test.js   pruebas de integración (con el servidor en marcha: node tes
 - **CRUD:** INSERT, SELECT, UPDATE y DELETE reales en todos los módulos.
 - **Informes:** 8 informes con JOIN, filtros y agregaciones (+ exportación CSV).
 - Documentación completa en `docs/DOCUMENTACION.md`.
+
+## Despliegue en la nube (Supabase + Vercel)
+1. **Supabase**: crear el proyecto y, en *SQL Editor*, ejecutar en orden `database/schema.sql`, `database/seed.sql` y `database/migrations/001_indices.sql`. En *Connect* copiar la cadena del **Transaction pooler** (puerto 6543).
+2. **Vercel**: importar el repositorio (sin build ni configuración extra) y agregar en *Environment Variables*: `DATABASE_URL` (la cadena de Supabase), `JWT_SECRET` (uno largo y nuevo), `JWT_EXPIRES` e `IVA_PORCENTAJE`.
+
+`vercel.json` envía `/api/*` a `api/index.js`, que reutiliza la app de `server.js`; Vercel sirve `public/` como archivos estáticos.
