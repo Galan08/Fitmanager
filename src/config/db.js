@@ -1,6 +1,6 @@
 // CAPA FÍSICA: conexión al servidor PostgreSQL (pool) y utilidad de transacciones.
 const { Pool, types } = require('pg');
-const { db } = require('./env');
+const { db, databaseUrl } = require('./env');
 
 // Tipos que PostgreSQL devuelve como texto/objetos: los normalizamos para la interfaz.
 types.setTypeParser(1700, (v) => parseFloat(v));   // NUMERIC  -> número
@@ -8,7 +8,10 @@ types.setTypeParser(20, (v) => parseInt(v, 10));   // BIGINT   -> número
 types.setTypeParser(1082, (v) => v);               // DATE     -> 'AAAA-MM-DD'
 types.setTypeParser(1114, (v) => v.slice(0, 19));  // TIMESTAMP-> 'AAAA-MM-DD HH:mm:ss'
 
-const raw = new Pool({ ...db, max: 10 });
+// Supabase exige SSL; en serverless (Vercel) cada instancia usa pocas conexiones.
+const raw = new Pool(databaseUrl
+  ? { connectionString: databaseUrl, ssl: { rejectUnauthorized: false }, max: 3 }
+  : { ...db, max: 10 });
 
 // Convierte los marcadores ? en $1, $2, ... (formato de parámetros de PostgreSQL).
 const toPg = (sql) => { let i = 0; return sql.replace(/\?/g, () => `$${++i}`); };

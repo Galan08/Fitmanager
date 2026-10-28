@@ -13,13 +13,20 @@ app.use('/api', api);
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(errorHandler);
 
-(async () => {
-  try {
-    await pool.query('SELECT 1');
-    await suscripcionRepo.marcarVencidas();
-    app.listen(env.port, () => console.log(`FitManager en http://localhost:${env.port}`));
-  } catch (e) {
-    console.error('No se pudo conectar a la base de datos:', e.message);
-    process.exit(1);
-  }
-})();
+if (require.main === module) {
+  (async () => {
+    try {
+      await pool.query('SELECT 1');
+      await suscripcionRepo.marcarVencidas();
+      app.listen(env.port, () => console.log(`FitManager en http://localhost:${env.port}`));
+    } catch (e) {
+      console.error('No se pudo conectar a la base de datos:', e.message);
+      process.exit(1);
+    }
+  })();
+} else {
+  // En Vercel (serverless) no hay listen: se marcan las vencidas una vez por arranque en frío.
+  suscripcionRepo.marcarVencidas().catch((e) => console.error('marcarVencidas:', e.message));
+}
+
+module.exports = app;
