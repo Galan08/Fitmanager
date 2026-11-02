@@ -21,7 +21,7 @@ psql -U postgres -d fitmanager -f database/schema.sql
 psql -U postgres -d fitmanager -f database/seed.sql
 #    b) o restaurar el backup completo (estructura + datos):
 psql -U postgres -d fitmanager -f database/fitmanager_backup.sql
-#    (si restauraste el backup o ya tenías la base creada, agrega los índices nuevos:)
+#    (solo si ya tenías la base creada antes de los índices:)
 psql -U postgres -d fitmanager -f database/migrations/001_indices.sql
 #    (con pgAdmin: clic derecho en la base > Query Tool > abrir el .sql > ejecutar)
 
@@ -43,12 +43,12 @@ Abrir **http://localhost:3000**
 | `cliente1` … `cliente12` | Cliente (portal: su suscripción, rutinas y reserva de clases) |
 
 > Los datos de ejemplo usan fechas relativas a la fecha en que se generó `seed.sql`. Para regenerarlos con la fecha de hoy: `npm run seed` y volver a cargar `schema.sql` + `seed.sql`.
-> El backup se creó con `pg_dump --no-owner --no-privileges --clean --if-exists`, por eso se puede restaurar sobre una base existente.
+> El backup se creó con `pg_dump --no-owner --no-privileges --clean --if-exists` (incluye índices), por eso se puede restaurar sobre una base existente. Sus fechas quedan fijas: si se restaura semanas después, las clases programadas pueden haber pasado. Para regenerarlo: cargar `schema.sql` + `seed.sql` y ejecutar `pg_dump -U postgres --no-owner --no-privileges --clean --if-exists fitmanager > database/fitmanager_backup.sql`.
 
 ## Estructura
 ```
 database/   schema.sql · seed.sql · generate_seed.js · fitmanager_backup.sql
-docs/       DOCUMENTACION.md (problema, modelo, capas, módulos) · diagrama_er.html/.mmd · GUION_VIDEO.md
+docs/       DOCUMENTACION.md (problema, modelo, capas, módulos) · diagrama_er.png/.pdf/.html/.mmd · GUION_VIDEO.md
 public/     CAPA DE PRESENTACIÓN (interfaz web)
 src/
   presentation/   API REST: rutas, autenticación JWT, permisos por rol
