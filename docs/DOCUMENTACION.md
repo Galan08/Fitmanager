@@ -40,7 +40,7 @@ Resultado: 17 → **16 tablas** (el mínimo exigido es 12; todas tienen función
 
 ## 3. Modelo relacional
 
-Notación: **PK** clave primaria · *FK* clave foránea · UK única. Diagrama completo: `docs/diagrama_er.html` (o `diagrama_er.mmd`).
+Notación: **PK** clave primaria · *FK* clave foránea · UK única. Diagrama completo: `docs/diagrama_er.png` / `docs/diagrama_er.pdf` (se ven sin internet), generados desde `diagrama_er.html` / `diagrama_er.mmd`. Los tipos del diagrama son los implementados en PostgreSQL.
 
 | Tabla | Atributos | Claves foráneas |
 |---|---|---|
@@ -111,6 +111,25 @@ fitmanager/
 | **Rutinas y ejercicios** | Diseñar rutinas con series/repeticiones/descanso | Entrenador | rutina, detalle_rutina, ejercicio, persona, entrenador | CRUD |
 | **Portal del cliente** | El cliente ve su suscripción, rutinas y reserva clases | Cliente | suscripcion, rutina, detalle_rutina, reserva_clase | SELECT, INSERT, UPDATE |
 | **Informes** | Convertir datos en decisiones | Admin, Recepción, Entrenador | varias (JOIN) | SELECT con agrupaciones |
+
+### Relaciones que usa cada módulo y cómo se conecta con los demás
+
+Todos los módulos siguen el mismo camino: pantalla en `public/js` → ruta en `src/presentation/routes` → servicio en `src/business/services` → repositorio en `src/data/repositories` → PostgreSQL.
+
+| Módulo | Relaciones (FK) que usa | Conexión con otros módulos |
+|---|---|---|
+| **Autenticación** | usuario → persona, usuario → rol | Entrega el JWT con el rol; todas las rutas lo verifican para mostrar/permitir cada módulo |
+| **Clientes** | usuario → persona, usuario → rol ('Cliente') | Es la base de Suscripciones, Accesos, Reservas, Rutinas y Portal: todos validan con `clienteRepo.hasRole(id, 'Cliente')` antes de insertar |
+| **Entrenadores / Personal** | usuario → persona, usuario → rol, entrenador → persona, entrenador → sede | El entrenador se usa en Programación de clases y en Rutinas |
+| **Sedes y Membresías** | (catálogos, sin FK propias) | Sede la usan Entrenadores, Accesos y Programación; Membresía la usa Suscripciones para precio y duración |
+| **Suscripciones** | suscripcion → persona, suscripcion → membresia, factura → suscripcion | Al crearla genera la factura (y el pago) en una transacción; Accesos, Reservas y Portal consultan si está activa |
+| **Facturas y Pagos** | pago → factura, factura → suscripcion | Cada pago recalcula el estado de la factura y de la suscripción (Pendiente/Activa), lo que habilita Accesos y Reservas |
+| **Control de acceso** | control_acceso → persona, control_acceso → sede | Consulta Suscripciones (activa) antes de registrar el ingreso; alimenta el aforo del Panel y el informe de horas pico |
+| **Clases y programación** | programacion_clase → clase, → entrenador, → sede | Revisa cruces de horario del entrenador; sus horarios son los que se reservan en Reservas y Portal |
+| **Reservas** | reserva_clase → persona, reserva_clase → programacion_clase (N:M) | Valida suscripción activa y cupo (`clase.capacidad_maxima`); alimenta el informe de ocupación |
+| **Rutinas y ejercicios** | rutina → persona, rutina → entrenador, detalle_rutina → rutina, detalle_rutina → ejercicio (N:M) | El cliente las ve en el Portal; cuentan en el informe de actividad por entrenador |
+| **Portal del cliente** | suscripcion, rutina, detalle_rutina, reserva_clase filtradas por el `id_persona` del usuario | Reutiliza los servicios de Reservas (mismas reglas de cupo y suscripción) |
+| **Informes** | JOIN entre las tablas de los demás módulos | Solo lee (SELECT); convierte lo registrado por los otros módulos en indicadores |
 
 ### Informes (8, todos con JOIN, filtros y agregaciones)
 1. Ingresos mensuales (pago · SUM/COUNT/AVG por mes)
