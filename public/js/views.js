@@ -119,7 +119,17 @@ export async function accesosView(user) {
   const aforoBox = h('div', { class: 'aforo' });
   const tableBox = h('div', { class: 'card' });
   const [clientes, sedes] = await Promise.all([api.get('/lookups/clientes'), api.get('/lookups/sedes')]);
-  const selCliente = h('select', { required: true }, h('option', { value: '' }, '— Seleccionar cliente —'), clientes.map((c) => h('option', { value: c.value }, c.label)));
+  const selCliente = h('select', { required: true });
+  let rows = [], query = '';
+  // Buscador por nombre o documento: filtra el selector de clientes y la tabla de accesos.
+  const coincide = (texto) => texto.toLowerCase().includes(query);
+  const buscar = h('input', { type: 'search', placeholder: 'Buscar por nombre o documento…', 'aria-label': 'Buscar cliente', oninput: (e) => { query = e.target.value.trim().toLowerCase(); filtrar(); render(); } });
+  function filtrar() {
+    const lista = clientes.filter((c) => coincide(c.label));
+    selCliente.replaceChildren(h('option', { value: '' }, '— Seleccionar cliente —'), ...lista.map((c) => h('option', { value: c.value }, c.label)));
+    if (query && lista.length === 1) selCliente.value = lista[0].value;
+  }
+  filtrar();
   const selSede = h('select', { required: true }, sedes.map((s) => h('option', { value: s.value }, s.label)));
   const form = h('form', { class: 'card quick', onsubmit: async (e) => {
     e.preventDefault();
@@ -128,9 +138,14 @@ export async function accesosView(user) {
   } }, h('label', {}, 'Cliente', selCliente), h('label', {}, 'Sede', selSede), h('button', { class: 'btn primary', type: 'submit' }, 'Registrar ingreso'));
 
   async function load() {
-    const [aforo, rows] = await Promise.all([api.get('/accesos/aforo'), api.get('/accesos')]);
+    const [aforo, data] = await Promise.all([api.get('/accesos/aforo'), api.get('/accesos')]);
+    rows = data;
     aforoBox.replaceChildren(...aforo.map((s) => h('div', { class: 'aforo-card' }, h('div', { class: 'n' }, s.dentro), h('div', { class: 's' }, s.nombre), h('div', { class: 'l' }, 'dentro ahora'))));
-    tableBox.replaceChildren(dataTable({ rows, empty: 'Todavía no hay ingresos registrados.',
+    render();
+  }
+  function render() {
+    const shown = query ? rows.filter((r) => coincide(`${r.cliente} ${r.documento_identidad}`)) : rows;
+    tableBox.replaceChildren(dataTable({ rows: shown, empty: query ? 'Ningún acceso coincide con la búsqueda.' : 'Todavía no hay ingresos registrados.',
       columns: [
         { key: 'cliente', label: 'Cliente' }, { key: 'sede', label: 'Sede' },
         { key: 'fecha_hora_ingreso', label: 'Ingreso', render: (r) => fmtDT(r.fecha_hora_ingreso) },
@@ -141,7 +156,7 @@ export async function accesosView(user) {
         btn('Eliminar', async () => { if (await confirmDialog('¿Eliminar este registro de acceso?')) { try { await api.del(`/accesos/${r.id_acceso}`); toast('Registro eliminado'); load(); } catch (e) { toast(e.message, true); } } }, 'danger')] }),
       h('div', { class: 'count' }, 'Se muestran los 200 accesos más recientes.'));
   }
-  root.append(head('Control de acceso', 'El ingreso solo se permite con una suscripción activa.'), aforoBox, form, tableBox);
+  root.append(head('Control de acceso', 'El ingreso solo se permite con una suscripción activa.', buscar), aforoBox, form, tableBox);
   await load();
   return root;
 }

@@ -6,6 +6,9 @@ const { sedeRepo } = require('../../data/repositories/catalogos');
 const { badRequest, notFound } = require('../errors');
 const v = require('../validators');
 
+// Usuario de acceso: el indicado o, si viene vacío, el documento.
+const usernameDe = (d) => d.username?.trim() || String(d.documento_identidad).trim();
+
 function makePersonaService(repo, { rolFijo, entrenador = false, nombre }) {
   const validar = async (d, creando) => {
     v.required(d, { documento_identidad: 'Documento', nombres: 'Nombres', apellidos: 'Apellidos' });
@@ -31,7 +34,7 @@ function makePersonaService(repo, { rolFijo, entrenador = false, nombre }) {
     get,
     async create(data) {
       await validar(data, true);
-      const username = data.username?.trim() || String(data.documento_identidad).trim();
+      const username = usernameDe(data);
       const hash = await bcrypt.hash(data.password || String(data.documento_identidad), 10);
       const id = await tx((conn) => repo.create({ ...data, username }, hash, rolFijo || data.rol, conn));
       return repo.findById(id);
@@ -40,7 +43,8 @@ function makePersonaService(repo, { rolFijo, entrenador = false, nombre }) {
       const actual = await get(id);
       await validar({ ...actual, ...data }, false);
       const hash = data.password ? await bcrypt.hash(data.password, 10) : null;
-      await tx((conn) => repo.update(id, data, hash, conn));
+      const username = data.username === undefined ? undefined : usernameDe({ ...actual, ...data });
+      await tx((conn) => repo.update(id, { ...data, username }, hash, conn));
       return repo.findById(id);
     },
     async remove(id) {

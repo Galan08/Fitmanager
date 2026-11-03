@@ -6,8 +6,9 @@ const { usuarioRepo } = require('../../data/repositories/usuarioRepository');
 const { AppError } = require('../errors');
 
 module.exports = {
+  // "username" puede ser el usuario, el documento o el correo.
   async login(username, password) {
-    const u = username ? await usuarioRepo.findByUsername(String(username).trim()) : null;
+    const u = username ? await usuarioRepo.findByLogin(String(username).trim()) : null;
     if (!u || !(await bcrypt.compare(String(password || ''), u.password_hash))) {
       throw new AppError(401, 'Usuario o contraseña incorrectos');
     }
