@@ -16,29 +16,7 @@ Un gimnasio gestiona a diario clientes, cobros de membresías, ingresos a las se
 
 **FitManager** resuelve esto con una aplicación web cliente/servidor que guarda todo en una base de datos relacional de **16 tablas** (3FN). Necesita base de datos porque la información es persistente, compartida por varios usuarios a la vez, relacional (un pago depende de una factura, que depende de una suscripción, que depende de un cliente y un plan) y debe consultarse con filtros y agrupaciones para los informes.
 
-## 2. Cambio al MER por indicación del docente
-
-Se **eliminó la tabla `Cliente`**: el cliente se maneja por **rol**. Un cliente es una `Persona` con un `Usuario` cuyo `Rol` es "Cliente".
-
-| Antes | Ahora |
-|---|---|
-| `cliente(id_cliente, id_persona, fecha_registro)` | Tabla eliminada. `fecha_registro` pasó a `persona`. |
-| FK `id_cliente → cliente` en suscripcion, control_acceso, reserva_clase, rutina | FK `id_cliente → persona(id_persona)` |
-| Garantía de "ser cliente" por la tabla | Se valida en la **capa lógica** (`clienteRepo.hasRole(id, 'Cliente')`) antes de cada INSERT |
-
-Resultado: 17 → **16 tablas** (el mínimo exigido es 12; todas tienen función real).
-
-**Motor de base de datos: PostgreSQL.** Adaptaciones de tipos respecto al MER original:
-
-| MER | PostgreSQL |
-|---|---|
-| `INT AUTO_INCREMENT` | `INT GENERATED ALWAYS AS IDENTITY` |
-| `DECIMAL(10,2)` | `NUMERIC(10,2)` |
-| `DATETIME` | `TIMESTAMP(0)` |
-| `ENUM('A','B')` | `VARCHAR` + `CHECK (col IN ('A','B'))` |
-| `BIGINT AUTO_INCREMENT` | `BIGINT GENERATED ALWAYS AS IDENTITY` |
-
-## 3. Modelo relacional
+## 2. Modelo relacional
 
 Notación: **PK** clave primaria · *FK* clave foránea · UK única. Diagrama completo: `docs/diagrama_er.png` / `docs/diagrama_er.pdf` (se ven sin internet), generados desde `diagrama_er.html` / `diagrama_er.mmd`. Los tipos del diagrama son los implementados en PostgreSQL.
 
@@ -65,7 +43,7 @@ Notación: **PK** clave primaria · *FK* clave foránea · UK única. Diagrama c
 
 **Integridad:** todas las FK usan `ON DELETE RESTRICT` (no se borra lo que tiene historial) salvo `detalle_rutina → rutina` que usa `CASCADE`. Hay `CHECK` en precios, duraciones, montos, series, repeticiones y fechas; `CHECK ... IN (...)` en los estados (equivalente a los ENUM del MER); UNIQUE en documento, usuario, número de factura y referencia de pago.
 
-## 4. Arquitectura por capas
+## 3. Arquitectura por capas
 
 ```
 fitmanager/
@@ -95,53 +73,288 @@ fitmanager/
 
 **Seguridad:** contraseñas con bcrypt (hash), sesión con JWT, permisos por rol (Administrador, Recepcionista, Entrenador, Cliente) verificados en el servidor; consultas parametrizadas (sin inyección SQL).
 
-## 5. Módulos funcionales
+## 4. Módulos funcionales
 
-| Módulo | Objetivo | Actor | Tablas | Operaciones |
-|---|---|---|---|---|
-| **Autenticación** | Iniciar sesión y limitar funciones por rol | Todos | usuario, persona, rol | SELECT |
-| **Clientes** | Registrar y mantener afiliados | Recepcionista, Admin | persona, usuario, rol | INSERT, SELECT, UPDATE, DELETE (transacción persona+usuario) |
-| **Entrenadores / Personal** | Gestionar equipo técnico y administrativo | Admin | persona, usuario, rol, entrenador, sede | INSERT, SELECT, UPDATE, DELETE |
-| **Sedes y Membresías** | Catálogos del negocio | Admin | sede, membresia | CRUD |
-| **Suscripciones** | Vender un plan: calcula fechas y genera la factura (y cobra opcionalmente) | Recepcionista | suscripcion, membresia, persona, factura, pago | INSERT (3 tablas en una transacción), SELECT, UPDATE, DELETE |
-| **Facturas y Pagos** | Cobrar; cada pago actualiza factura y suscripción | Recepcionista | factura, pago, suscripcion | INSERT, SELECT, UPDATE, DELETE |
-| **Control de acceso** | Registrar ingreso/salida validando suscripción activa; aforo en vivo | Recepcionista | control_acceso, suscripcion, sede, persona | INSERT, SELECT, UPDATE (salida), DELETE |
-| **Clases y programación** | Catálogo y horarios con entrenador y sede, sin cruces | Entrenador, Admin | clase, programacion_clase, entrenador, sede | CRUD |
-| **Reservas** | Reservar cupo (suscripción vigente + cupo libre) | Recepcionista, Cliente | reserva_clase, programacion_clase, clase, suscripcion | INSERT, SELECT, UPDATE, DELETE |
-| **Rutinas y ejercicios** | Diseñar rutinas con series/repeticiones/descanso | Entrenador | rutina, detalle_rutina, ejercicio, persona, entrenador | CRUD |
-| **Portal del cliente** | El cliente ve su suscripción, rutinas y reserva clases | Cliente | suscripcion, rutina, detalle_rutina, reserva_clase | SELECT, INSERT, UPDATE |
-| **Informes** | Convertir datos en decisiones | Admin, Recepción, Entrenador | varias (JOIN) | SELECT con agrupaciones |
+### Módulo 1: Autenticación y control de roles
 
-### Relaciones que usa cada módulo y cómo se conecta con los demás
+**Objetivo:** permitir que cada usuario inicie sesión y limitar lo que puede ver y hacer según su rol.
 
-Todos los módulos siguen el mismo camino: pantalla en `public/js` → ruta en `src/presentation/routes` → servicio en `src/business/services` → repositorio en `src/data/repositories` → PostgreSQL.
+**Actor:** todos los usuarios (Administrador, Recepcionista, Entrenador y Cliente).
 
-| Módulo | Relaciones (FK) que usa | Conexión con otros módulos |
-|---|---|---|
-| **Autenticación** | usuario → persona, usuario → rol | Entrega el JWT con el rol; todas las rutas lo verifican para mostrar/permitir cada módulo |
-| **Clientes** | usuario → persona, usuario → rol ('Cliente') | Es la base de Suscripciones, Accesos, Reservas, Rutinas y Portal: todos validan con `clienteRepo.hasRole(id, 'Cliente')` antes de insertar |
-| **Entrenadores / Personal** | usuario → persona, usuario → rol, entrenador → persona, entrenador → sede | El entrenador se usa en Programación de clases y en Rutinas |
-| **Sedes y Membresías** | (catálogos, sin FK propias) | Sede la usan Entrenadores, Accesos y Programación; Membresía la usa Suscripciones para precio y duración |
-| **Suscripciones** | suscripcion → persona, suscripcion → membresia, factura → suscripcion | Al crearla genera la factura (y el pago) en una transacción; Accesos, Reservas y Portal consultan si está activa |
-| **Facturas y Pagos** | pago → factura, factura → suscripcion | Cada pago recalcula el estado de la factura y de la suscripción (Pendiente/Activa), lo que habilita Accesos y Reservas |
-| **Control de acceso** | control_acceso → persona, control_acceso → sede | Consulta Suscripciones (activa) antes de registrar el ingreso; alimenta el aforo del Panel y el informe de horas pico |
-| **Clases y programación** | programacion_clase → clase, → entrenador, → sede | Revisa cruces de horario del entrenador; sus horarios son los que se reservan en Reservas y Portal |
-| **Reservas** | reserva_clase → persona, reserva_clase → programacion_clase (N:M) | Valida suscripción activa y cupo (`clase.capacidad_maxima`); alimenta el informe de ocupación |
-| **Rutinas y ejercicios** | rutina → persona, rutina → entrenador, detalle_rutina → rutina, detalle_rutina → ejercicio (N:M) | El cliente las ve en el Portal; cuentan en el informe de actividad por entrenador |
-| **Portal del cliente** | suscripcion, rutina, detalle_rutina, reserva_clase filtradas por el `id_persona` del usuario | Reutiliza los servicios de Reservas (mismas reglas de cupo y suscripción) |
-| **Informes** | JOIN entre las tablas de los demás módulos | Solo lee (SELECT); convierte lo registrado por los otros módulos en indicadores |
+**Tablas utilizadas:** usuario, persona y rol.
 
-### Informes (8, todos con JOIN, filtros y agregaciones)
-1. Ingresos mensuales (pago · SUM/COUNT/AVG por mes)
-2. Membresías más vendidas (membresia + suscripcion + factura)
-3. Suscripciones por vencer (renovaciones)
-4. Cartera pendiente (factura + pago + suscripcion + persona; saldo = total − pagado)
-5. Ocupación de clases (clase + programacion + reserva; % de ocupación)
-6. Actividad por entrenador (entrenador + programacion + reserva + rutina)
-7. Horas pico por sede (control_acceso + sede; permanencia promedio)
-8. Clientes más frecuentes (top 10)
+**Uso de la base de datos:** busca el usuario por su nombre de usuario uniendo `usuario` con `persona` (para el nombre) y con `rol` (para el rol); compara la contraseña con el hash bcrypt guardado y, si es correcta, genera un token JWT con el id de la persona y su rol.
 
-Además el **Panel** muestra el aforo en tiempo real por sede y KPIs. Todos los informes se pueden descargar en CSV.
+**Operaciones utilizadas:** SELECT.
+
+**Relaciones utilizadas:** usuario → persona (1:1), usuario → rol (N:1).
+
+**Conexión con otros componentes:** el token que entrega se envía en cada petición; el middleware `authenticate` lo verifica y `guard` decide si el rol puede leer o escribir en cada módulo. El menú de la interfaz también se arma según el rol.
+
+---
+
+### Módulo 2: Panel principal
+
+**Objetivo:** mostrar al personal un resumen del estado del gimnasio en tiempo real.
+
+**Actor:** Administrador, Recepcionista y Entrenador.
+
+**Tablas utilizadas:** usuario, rol, suscripcion, pago, factura, programacion_clase, control_acceso y sede.
+
+**Uso de la base de datos:** cuenta los clientes registrados, las suscripciones activas, los ingresos del mes, las facturas pendientes con su saldo y las clases programadas para hoy; además calcula el aforo actual de cada sede contando los ingresos sin salida registrada.
+
+**Operaciones utilizadas:** SELECT (con COUNT, SUM y LEFT JOIN).
+
+**Relaciones utilizadas:** usuario → rol, pago → factura, control_acceso → sede.
+
+**Conexión con otros componentes:** solo lee lo que registran los módulos de Suscripciones, Facturación y pagos, Control de acceso y Clases; reutiliza las consultas del repositorio de informes y de accesos.
+
+---
+
+### Módulo 3: Gestión de clientes
+
+**Objetivo:** registrar y mantener la información de los afiliados del gimnasio.
+
+**Actor:** Recepcionista y Administrador (crean, editan y eliminan); el Entrenador solo consulta.
+
+**Tablas utilizadas:** persona, usuario y rol.
+
+**Uso de la base de datos:** al registrar un cliente inserta sus datos personales en `persona` y crea su cuenta en `usuario` con el rol "Cliente", todo en una sola transacción (si algo falla, no se guarda nada). La contraseña se guarda cifrada. Al consultar une las tres tablas filtrando por el rol Cliente. Al eliminar, borra el usuario y la persona; si el cliente tiene historial (suscripciones, accesos, reservas o rutinas), la base de datos lo impide por integridad referencial y se muestra un mensaje claro.
+
+**Operaciones utilizadas:** INSERT, SELECT, UPDATE y DELETE.
+
+**Relaciones utilizadas:** usuario → persona (1:1), usuario → rol (N:1).
+
+**Conexión con otros componentes:** el cliente es la base de Suscripciones, Control de acceso, Reservas, Rutinas y Portal del cliente. Todos esos módulos verifican con `clienteRepo.hasRole(id, 'Cliente')` que la persona tenga el rol Cliente antes de insertar (esto reemplaza a la antigua tabla `cliente`).
+
+---
+
+### Módulo 4: Gestión de entrenadores
+
+**Objetivo:** administrar el personal técnico que dicta clases y diseña rutinas.
+
+**Actor:** Administrador (crea, edita y elimina); Recepcionista y Entrenador consultan.
+
+**Tablas utilizadas:** persona, usuario, rol, entrenador y sede.
+
+**Uso de la base de datos:** valida que la sede exista e inserta en una transacción la persona, su usuario con rol "Entrenador" y su registro en `entrenador` con la sede y la especialidad. Al consultar une las cinco tablas para mostrar nombre, especialidad y sede.
+
+**Operaciones utilizadas:** INSERT, SELECT, UPDATE y DELETE.
+
+**Relaciones utilizadas:** usuario → persona, usuario → rol, entrenador → persona (1:1), entrenador → sede (N:1).
+
+**Conexión con otros componentes:** el entrenador se usa en Clases y programación (quién dicta cada clase), en Rutinas (quién la asigna) y en el informe de actividad por entrenador.
+
+---
+
+### Módulo 5: Personal administrativo
+
+**Objetivo:** gestionar las cuentas de administradores y recepcionistas que usan el sistema.
+
+**Actor:** Administrador.
+
+**Tablas utilizadas:** persona, usuario y rol.
+
+**Uso de la base de datos:** inserta la persona y su usuario con el rol elegido (Administrador o Recepcionista) en una transacción; permite cambiar el rol, los datos personales y la contraseña.
+
+**Operaciones utilizadas:** INSERT, SELECT, UPDATE y DELETE.
+
+**Relaciones utilizadas:** usuario → persona, usuario → rol.
+
+**Conexión con otros componentes:** las cuentas creadas aquí son las que inician sesión en el módulo de Autenticación y operan el resto de módulos según su rol.
+
+---
+
+### Módulo 6: Sedes
+
+**Objetivo:** mantener el catálogo de sucursales del gimnasio.
+
+**Actor:** Administrador (CRUD); Recepcionista y Entrenador consultan.
+
+**Tablas utilizadas:** sede.
+
+**Uso de la base de datos:** registra nombre, dirección, teléfono y estado (Activa/Inactiva). Una sede con entrenadores, accesos o clases asociadas no se puede eliminar (ON DELETE RESTRICT); para dejar de usarla se cambia su estado a Inactiva.
+
+**Operaciones utilizadas:** INSERT, SELECT, UPDATE y DELETE.
+
+**Relaciones utilizadas:** es tabla padre de entrenador, control_acceso y programacion_clase (1:N).
+
+**Conexión con otros componentes:** Entrenadores, Control de acceso y Programación de clases solo permiten elegir sedes activas; el Panel muestra el aforo por sede.
+
+---
+
+### Módulo 7: Membresías
+
+**Objetivo:** definir los planes que el gimnasio vende, con su precio y duración.
+
+**Actor:** Administrador (CRUD); Recepcionista y Entrenador consultan.
+
+**Tablas utilizadas:** membresia.
+
+**Uso de la base de datos:** registra nombre, descripción, precio, duración en días y estado. Valida que el precio no sea negativo y que la duración sea mayor a cero.
+
+**Operaciones utilizadas:** INSERT, SELECT, UPDATE y DELETE.
+
+**Relaciones utilizadas:** es tabla padre de suscripcion (1:N).
+
+**Conexión con otros componentes:** Suscripciones toma de aquí el precio (para la factura) y la duración (para calcular la fecha de fin); el informe "Membresías más vendidas" agrupa por este plan.
+
+---
+
+### Módulo 8: Suscripciones
+
+**Objetivo:** vender un plan a un cliente: calcular sus fechas, generar la factura y, si se desea, cobrarla en el mismo paso.
+
+**Actor:** Recepcionista y Administrador.
+
+**Tablas utilizadas:** suscripcion, persona, usuario, rol, membresia, factura y pago.
+
+**Uso de la base de datos:** consulta que la persona tenga rol Cliente y que la membresía exista y esté activa; calcula la fecha de fin con la duración del plan; verifica que el cliente no tenga otra suscripción activa o pendiente que se cruce en fechas. Luego, en **una sola transacción**, inserta la suscripción, inserta la factura (subtotal, descuento, IVA y total) y, si se eligió método de pago, inserta el pago. Al listar, actualiza a "Vencida" las suscripciones activas cuya fecha de fin ya pasó. Solo permite eliminar suscripciones sin pagos (borra también su factura); si tiene pagos, se debe cambiar a "Cancelada".
+
+**Operaciones utilizadas:** SELECT, INSERT, UPDATE y DELETE.
+
+**Relaciones utilizadas:** suscripcion → persona (N:1), suscripcion → membresia (N:1), factura → suscripcion (N:1), pago → factura (N:1).
+
+**Conexión con otros componentes:** su estado "Activa" es la condición que exigen Control de acceso, Reservas y Portal del cliente; el estado lo actualiza automáticamente el módulo de Facturación y pagos.
+
+---
+
+### Módulo 9: Facturación y pagos
+
+**Objetivo:** cobrar las facturas y mantener sincronizado el estado de la factura y de la suscripción.
+
+**Actor:** Recepcionista y Administrador.
+
+**Tablas utilizadas:** factura, pago, suscripcion, persona y membresia.
+
+**Uso de la base de datos:** consulta las facturas con lo pagado y el saldo (suma de pagos aprobados). Al registrar un pago valida que la factura no esté anulada ni pagada y que el monto no supere el saldo; inserta el pago y, en la misma transacción, recalcula: si lo pagado cubre el total, la factura pasa a "Pagada" y la suscripción a "Activa"; si no, quedan "Pendiente". Lo mismo ocurre al cambiar el estado de un pago o eliminarlo. Una factura sin pagos se puede anular.
+
+**Operaciones utilizadas:** SELECT, INSERT (pago), UPDATE (estado de pago, factura y suscripción) y DELETE (pago). La factura no se inserta aquí: la genera el módulo de Suscripciones.
+
+**Relaciones utilizadas:** pago → factura (N:1), factura → suscripcion (N:1), suscripcion → persona, suscripcion → membresia.
+
+**Conexión con otros componentes:** recibe las facturas de Suscripciones y le devuelve el estado actualizado; alimenta los informes de ingresos mensuales y cartera pendiente, y los indicadores del Panel.
+
+---
+
+### Módulo 10: Control de acceso
+
+**Objetivo:** registrar la entrada y salida de los clientes en cada sede, permitiendo el ingreso solo a quien tenga una suscripción vigente.
+
+**Actor:** Recepcionista y Administrador.
+
+**Tablas utilizadas:** control_acceso, persona, usuario, rol, sede y suscripcion.
+
+**Uso de la base de datos:** consulta que la persona sea cliente, que la sede esté activa, que tenga una suscripción "Activa" dentro de sus fechas y que no tenga ya un ingreso abierto; si todo se cumple, inserta el ingreso con la fecha y hora actual. Al registrar la salida actualiza la hora de salida. También calcula el aforo actual por sede.
+
+**Operaciones utilizadas:** SELECT, INSERT (ingreso), UPDATE (salida) y DELETE (corregir un registro).
+
+**Relaciones utilizadas:** control_acceso → persona (N:1), control_acceso → sede (N:1); consulta suscripcion → persona.
+
+**Conexión con otros componentes:** depende de Suscripciones para autorizar el ingreso; alimenta el aforo del Panel y los informes "Horas pico por sede" y "Clientes más frecuentes".
+
+---
+
+### Módulo 11: Clases y programación
+
+**Objetivo:** mantener el catálogo de clases grupales y programar sus horarios con entrenador y sede, sin cruces.
+
+**Actor:** Entrenador y Administrador (crean y editan); Recepcionista consulta.
+
+**Tablas utilizadas:** clase, programacion_clase, entrenador, persona, sede y reserva_clase.
+
+**Uso de la base de datos:** en el catálogo registra el nombre de la clase y su capacidad máxima. Al programar valida que la clase exista, que la sede esté activa y que el entrenador no tenga otra clase que se cruce en ese horario (consulta por rango de fecha y duración). Al listar muestra cuántos cupos están ocupados contando las reservas no canceladas. No permite eliminar una programación con reservas activas ni cambiarla a una clase con menos cupos que las reservas que ya tiene.
+
+**Operaciones utilizadas:** INSERT, SELECT, UPDATE y DELETE.
+
+**Relaciones utilizadas:** programacion_clase → clase (N:1), programacion_clase → entrenador (N:1), programacion_clase → sede (N:1), entrenador → persona.
+
+**Conexión con otros componentes:** los horarios programados son los que se reservan en Reservas y en el Portal del cliente; alimenta los informes de ocupación de clases y de actividad por entrenador.
+
+---
+
+### Módulo 12: Reservas de clases
+
+**Objetivo:** reservar cupos en las clases programadas controlando el aforo.
+
+**Actor:** Recepcionista y Administrador (el Cliente reserva desde su portal; el Entrenador consulta).
+
+**Tablas utilizadas:** reserva_clase, programacion_clase, clase, persona, usuario, rol, suscripcion y sede.
+
+**Uso de la base de datos:** consulta que la persona sea cliente, que la clase no haya comenzado, que el cliente tenga suscripción activa, que no tenga ya ese cupo reservado y que la cantidad de reservas sea menor que `clase.capacidad_maxima`. Si todo se cumple inserta la reserva (o reactiva una cancelada). Permite cambiar el estado a Confirmada, Asistió o Cancelada.
+
+**Operaciones utilizadas:** SELECT, INSERT, UPDATE y DELETE.
+
+**Relaciones utilizadas:** reserva_clase → persona y reserva_clase → programacion_clase. Es la **tabla intermedia que resuelve la relación N:M** entre clientes y clases programadas (con UNIQUE(id_cliente, id_programacion)).
+
+**Conexión con otros componentes:** depende de Clases y programación (cupo y horario) y de Suscripciones (vigencia); el Portal del cliente reutiliza este mismo servicio, así que aplica las mismas reglas; alimenta el informe de ocupación.
+
+---
+
+### Módulo 13: Rutinas y ejercicios
+
+**Objetivo:** diseñar rutinas de entrenamiento personalizadas para cada cliente.
+
+**Actor:** Entrenador y Administrador (crean y editan); Recepcionista consulta.
+
+**Tablas utilizadas:** rutina, detalle_rutina, ejercicio, persona, entrenador.
+
+**Uso de la base de datos:** el catálogo de ejercicios registra nombre y grupo muscular. Al crear una rutina valida que el destinatario sea cliente y, si la crea un entrenador, toma automáticamente su `id_entrenador`. En el detalle inserta cada ejercicio con series, repeticiones, descanso y orden (el orden se calcula con el máximo actual + 1). Al eliminar una rutina, su detalle se borra en cascada.
+
+**Operaciones utilizadas:** INSERT, SELECT, UPDATE y DELETE.
+
+**Relaciones utilizadas:** rutina → persona (cliente), rutina → entrenador, detalle_rutina → rutina (ON DELETE CASCADE) y detalle_rutina → ejercicio. `detalle_rutina` es la **tabla intermedia que resuelve la relación N:M** entre rutinas y ejercicios.
+
+**Conexión con otros componentes:** el cliente ve sus rutinas en el Portal; el número de rutinas asignadas aparece en el informe de actividad por entrenador.
+
+---
+
+### Módulo 14: Portal del cliente
+
+**Objetivo:** que el cliente consulte su propia información y reserve clases sin intervención de la recepción.
+
+**Actor:** Cliente.
+
+**Tablas utilizadas:** persona, usuario, rol, suscripcion, membresia, rutina, detalle_rutina, ejercicio, reserva_clase, programacion_clase, clase y sede.
+
+**Uso de la base de datos:** todas las consultas se filtran por el `id_persona` del usuario que inició sesión, así que el cliente solo ve sus datos: perfil, historial de suscripciones y si tiene una activa, sus rutinas con el detalle de ejercicios y sus reservas. Puede reservar una clase futura (INSERT) y cancelar una reserva confirmada (UPDATE del estado).
+
+**Operaciones utilizadas:** SELECT, INSERT y UPDATE.
+
+**Relaciones utilizadas:** suscripcion → persona, rutina → persona, detalle_rutina → rutina/ejercicio, reserva_clase → persona/programacion_clase.
+
+**Conexión con otros componentes:** reutiliza el servicio de Reservas (mismas reglas de cupo y suscripción) y lee lo registrado en Suscripciones y Rutinas.
+
+---
+
+### Módulo 15: Informes
+
+**Objetivo:** convertir los datos registrados por los demás módulos en información útil para la toma de decisiones.
+
+**Actor:** Administrador, Recepcionista y Entrenador.
+
+**Tablas utilizadas:** pago, factura, suscripcion, membresia, persona, clase, programacion_clase, reserva_clase, entrenador, rutina, control_acceso y sede.
+
+**Uso de la base de datos:** ejecuta 8 consultas con JOIN, filtros por rango de fechas y agrupaciones:
+
+1. Ingresos mensuales (pago: COUNT, SUM y AVG por mes).
+2. Membresías más vendidas (membresia + suscripcion + factura).
+3. Suscripciones por vencer en los próximos N días (suscripcion + persona + membresia).
+4. Cartera pendiente: saldo por cliente (factura + pago + suscripcion + persona).
+5. Ocupación de clases en porcentaje (clase + programacion_clase + reserva_clase).
+6. Actividad por entrenador: clases, asistentes y rutinas (entrenador + programacion_clase + reserva_clase + rutina).
+7. Horas pico por sede con permanencia promedio (control_acceso + sede).
+8. Top 10 de clientes más frecuentes (control_acceso + persona).
+
+Los resultados se pueden descargar en CSV.
+
+**Operaciones utilizadas:** SELECT (con JOIN, GROUP BY, COUNT, SUM, AVG y subconsultas).
+
+**Relaciones utilizadas:** prácticamente todas las claves foráneas del modelo.
+
+**Conexión con otros componentes:** es solo de lectura; depende de lo que registran Suscripciones, Facturación y pagos, Control de acceso, Clases, Reservas y Rutinas.
+
+---
 
 ## 6. Transacciones y reglas destacadas
 - **Crear suscripción** = INSERT suscripción + INSERT factura (+ INSERT pago si se cobra) en **una transacción** (rollback si algo falla).
