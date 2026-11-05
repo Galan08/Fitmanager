@@ -3,7 +3,7 @@
 Aplicación web **cliente/servidor** con **Node.js + Express** (servidor y API REST), **PostgreSQL** (base de datos de 16 tablas) y una interfaz **HTML/CSS/JS** (cliente).
 Proyecto del Segundo Parcial — UFPS Ocaña.
 
-**Video en YouTube:** `PEGAR_AQUÍ_EL_ENLACE`
+**Video en YouTube:** https://youtube.com/shorts/WmoGdS93neM
 
 ## Requisitos
 - Node.js 18 o superior
@@ -48,7 +48,6 @@ Abrir **http://localhost:3000**
 ## Estructura
 ```
 database/   schema.sql · seed.sql · generate_seed.js · fitmanager_backup.sql
-docs/       DOCUMENTACION.md (problema, modelo, capas, módulos) · diagrama_er.png/.pdf/.html/.mmd · GUION_VIDEO.md
 public/     CAPA DE PRESENTACIÓN (interfaz web)
 src/
   presentation/   API REST: rutas, autenticación JWT, permisos por rol
